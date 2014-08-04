@@ -176,19 +176,55 @@ impl<K: Send + Share + Ord, V: Send + Share> Map<K, V> {
     /// Insert a key value pair into the map. If they key is already present in
     /// the Map, it's value will be replaced.
     pub fn insert(&self, key: Arc<K>, val: Arc<V>) -> Map<K, V> {
-        unimplemented!()
+        match *self {
+            Tip => Map::singleton_arc(key, val),
+            Bin { size: ref sizex, key: ref keyx, value: ref valuex,
+                  left: ref leftx, right: ref rightx } => {
+                match key.cmp(&**keyx) {
+                    Equal   => Map::bin_ref(&key, &val, leftx, rightx),
+                    Less    => Map::balance(keyx.clone(), valuex.clone(),
+                                            Arc::new(leftx.insert(key, val)), rightx.clone()),
+                    Greater => Map::balance(keyx.clone(), valuex.clone(),
+                                            leftx.clone(), Arc::new(rightx.insert(key, val))),
+                }
+            }
+        }
     }
 
     /// Insert a new key value pair into the map. If the key is already
     /// present the old value is used.
     pub fn insert_no_replace(&self, key: Arc<K>, val: Arc<V>) -> Map<K, V> {
-        unimplemented!()
+        match *self {
+            Tip => Map::singleton_arc(key, val),
+            Bin { size: ref sizex, key: ref keyx, value: ref valuex,
+                  left: ref leftx, right: ref rightx } => {
+                match key.cmp(&**keyx) {
+                    Equal   => self.clone(),
+                    Less    => Map::balance(keyx.clone(), valuex.clone(),
+                                            Arc::new(leftx.insert(key, val)), rightx.clone()),
+                    Greater => Map::balance(keyx.clone(), valuex.clone(),
+                                            leftx.clone(), Arc::new(rightx.insert(key, val))),
+                }
+            }
+        }
     }
 
     /// Insert a key value pair into the map, if the key is already present,
     /// modify it's value with the passed in closure.
     pub fn insert_or_modify_with(&self, key: Arc<K>, val: Arc<V>, modifier: |&V| -> V) -> Map<K, V> {
-        unimplemented!()
+        match *self {
+            Tip => Map::singleton_arc(key, val),
+            Bin { size: ref sizex, key: ref keyx, value: ref valuex,
+                  left: ref leftx, right: ref rightx } => {
+                match key.cmp(&**keyx) {
+                    Equal   => Map::bin_ref(&key, &Arc::new(modifier(&**valuex)), leftx, rightx),
+                    Less    => Map::balance(keyx.clone(), valuex.clone(),
+                                            Arc::new(leftx.insert(key, val)), rightx.clone()),
+                    Greater => Map::balance(keyx.clone(), valuex.clone(),
+                                            leftx.clone(), Arc::new(rightx.insert(key, val))),
+                }
+            }
+        }
     }
 }
 
@@ -198,7 +234,7 @@ static DELTA: uint = 3;
 // Balancing
 impl<K: Send + Share + Ord, V: Send + Share> Map<K, V> {
     // Balance a tree.
-    fn balance(&self, key: Arc<K>, value: Arc<V>) -> Map<K, V> {
+    fn balance(key: Arc<K>, value: Arc<V>, left: Arc<Map<K, V>>, right: Arc<Map<K, V>>) -> Map<K, V> {
         unimplemented!()
     }
 
