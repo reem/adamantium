@@ -63,3 +63,57 @@ impl<K: Ord + Send + Share, V: Send + Share> collections::Set<K> for Map<K, V> {
     }
 }
 
+
+// Constructors
+impl<K: Send + Share, V: Send + Share> Map<K, V> {
+    /// An empty map.
+    #[inline]
+    pub fn new() -> Map<K, V> { Tip }
+
+    /// Create a map with one key value pair.
+    #[inline]
+    pub fn singleton(key: K, value: V) -> Map<K, V> {
+        Bin {
+            size: 1,
+            key: Arc::new(key),
+            value: Arc::new(value),
+            left: Arc::new(Map::new()),
+            right: Arc::new(Map::new())
+        }
+    }
+
+    /// Bin constructor which takes care of cloning Arcs and size.
+    #[inline]
+    pub fn bin(key: Arc<K>, value: Arc<V>, left: Arc<Map<K, V>>, right: Arc<Map<K, V>>) -> Map<K, V> {
+        Bin {
+            size: left.len() + right.len() + 1,
+            key: key.clone(),
+            value: value.clone(),
+            left: left.clone(),
+            right: right.clone()
+        }
+    }
+
+    // Bin constructor which takes care of cloning &Arcs and size.
+    //
+    // This is very useful when destructuring a previous Bin by using `ref left` and such.
+    #[inline]
+    fn bin_ref(key: &Arc<K>, value: &Arc<V>, left: &Arc<Map<K, V>>, right: &Arc<Map<K, V>>) -> Map<K, V> {
+        Bin {
+            size: left.len() + right.len() + 1,
+            key: key.clone(),
+            value: value.clone(),
+            left: left.clone(),
+            right: right.clone()
+        }
+    }
+
+    // Bin constructor which Arc's all values.
+    //
+    // Useful for creating Bin's from constituent parts without writing
+    // boilerplate.
+    fn bin_no_arc(key: K, value: V, left: Map<K, V>, right: Map<K, V>) -> Map<K, V> {
+        Map::bin(Arc::new(key), Arc::new(value), Arc::new(left), Arc::new(right))
+    }
+}
+
