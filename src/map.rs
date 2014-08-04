@@ -149,3 +149,24 @@ impl<K: Send + Share, V: Send + Share> Default for Map<K, V> {
     fn default() -> Map<K, V> { Map::new() }
 }
 
+// Insertion
+impl<K: Send + Share + Ord, V: Send + Share> Map<K, V> {
+    /// Insert a key value pair into the map. If they key is already present in
+    /// the Map, it's value will be replaced.
+    pub fn insert(&self, key: Arc<K>, val: Arc<V>) -> Map<K, V> {
+        unimplemented!()
+    }
+
+    /// Insert a new key value pair into the map. If the key is already
+    /// present the old value is used.
+    pub fn insert_no_replace(&self, key: Arc<K>, val: Arc<V>) -> Map<K, V> {
+        unimplemented!()
+    }
+
+    /// Insert a key value pair into the map, if the key is already present,
+    /// modify it's value with the passed in closure.
+    pub fn insert_or_modify_with(&self, key: Arc<K>, val: Arc<V>, modifier: |&V| -> V) -> Map<K, V> {
+        unimplemented!()
+    }
+}
+
