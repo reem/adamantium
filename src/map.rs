@@ -291,3 +291,55 @@ impl<K: Send + Share + Ord, V: Send + Share> Map<K, V> {
     }
 }
 
+// Iterators
+impl<K, V> Map<K, V> {
+    /// Get a depth-first iterator over the items in a map.
+    pub fn dfs_iter(&self) -> DfsItems<K, V> {
+        unimplemented!()
+    }
+
+    /// Get a breadth-first iterator over the items in a map.
+    pub fn bfs_iter(&self) -> BfsItems<K, V> {
+        unimplemented!()
+    }
+
+    /// Get a preorder iterator over the items in a map.
+    pub fn preorder_iter(&self) -> PreorderItems<K, V> {
+        unimplemented!()
+    }
+
+    /// Get an in-order iterator over the items in a map.
+    pub fn inorder_iter(&self) -> InorderItems<K, V> {
+        unimplemented!()
+    }
+
+    /// Get a post-order iterator over the items in a map.
+    pub fn postorder_iter(&self) -> PostorderItems<K, V> {
+        unimplemented!()
+    }
+}
+
+/// A depth-first iterator over the pairs of a map.
+pub struct DfsItems<'a, K, V> {
+    map: &'a Map<K, V>
+}
+
+/// A breadth-first iterator over the pairs of a map.
+pub struct BfsItems<'a, K, V> {
+    map: &'a Map<K, V>
+}
+
+/// A pre-order iterator over the pairs of a map.
+pub struct PreorderItems<'a, K, V> {
+    map: &'a Map<K, V>
+}
+
+/// An in-order iterator over the pairs of a map.
+pub struct InorderItems<'a, K, V> {
+    map: &'a Map<K, V>
+}
+
+/// A post-order iterator over the pairs of a map.
+pub struct PostorderItems<'a, K, V> {
+    map: &'a Map<K, V>
+}
