@@ -170,3 +170,46 @@ impl<K: Send + Share + Ord, V: Send + Share> Map<K, V> {
     }
 }
 
+static RATIO: uint = 2;
+static DELTA: uint = 3;
+
+// Balancing
+impl<K: Send + Share + Ord, V: Send + Share> Map<K, V> {
+    // Balance a tree.
+    fn balance(&self, key: Arc<K>, value: Arc<V>) -> Map<K, V> {
+        unimplemented!()
+    }
+
+    // Create a tree with size and balance restored.
+    fn link(key: Arc<K>, value: Arc<V>, left: Arc<Map<K, V>>, right: Arc<Map<K, V>>) -> Map<K, V> {
+        unimplemented!()
+    }
+
+    // Merge two trees and restore their balance.
+    fn merge(one: Arc<Map<K, V>>, two: Arc<Map<K, V>>) -> Map<K, V> {
+        unimplemented!()
+    }
+
+    // Glue two trees together, assuming that they are balanced with respect to
+    // each other (all keys in left are smaller than all keys in right).
+    fn glue(left: Arc<Map<K, V>>, right: Arc<Map<K, V>>) -> Map<K, V> {
+        unimplemented!()
+    }
+
+    // Balance the left subtree only
+    //
+    // Should be called when the left subtree was inserted into or the right
+    // subtree was or might have been deleted from.
+    fn balance_left(key: Arc<K>, value: Arc<V>, left: Arc<Map<K, V>>, right: Arc<Map<K, V>>) -> Map<K, V> {
+        unimplemented!()
+    }
+
+    // Balance the right subtree only
+    //
+    // Should be called when the right subtree was inserted into or the left
+    // subtree was or might have been deleted from.
+    fn balance_right(key: Arc<K>, value: Arc<V>, left: Arc<Map<K, V>>, right: Arc<Map<K, V>>) -> Map<K, V> {
+        unimplemented!()
+    }
+}
+
