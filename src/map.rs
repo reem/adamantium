@@ -213,3 +213,13 @@ impl<K: Send + Share + Ord, V: Send + Share> Map<K, V> {
     }
 }
 
+// Deletion
+impl<K: Send + Share + Ord, V: Send + Share> Map<K, V> {
+    /// Delete a key and its value from the map.
+    ///
+    /// If the key is not a member of the map, the original map is returned.
+    pub fn delete(&self, key: &K) -> Map<K, V> {
+        unimplemented!()
+    }
+}
+
