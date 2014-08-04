@@ -27,6 +27,17 @@ pub enum Map<K, V> {
     Tip
 }
 
+impl<K: Send + Share, V: Send + Share> Clone for Map<K, V> {
+    fn clone(&self) -> Map<K, V> {
+        match *self {
+            Tip => Tip,
+            Bin { size, ref key, ref value, ref left, ref right } => {
+                Map::bin_ref(key, value, left, right)
+            }
+        }
+    }
+}
+
 impl<K, V> collections::Collection for Map<K, V> {
     #[inline]
     fn len(&self) -> uint {
@@ -118,6 +129,17 @@ impl<K: Send + Share, V: Send + Share> Map<K, V> {
             value: value.clone(),
             left: left.clone(),
             right: right.clone()
+        }
+    }
+
+    // Arc-based singleton constructor.
+    fn singleton_arc(key: Arc<K>, value: Arc<V>) -> Map<K, V> {
+        Bin {
+            size: 1,
+            key: key,
+            value: value,
+            left: Arc::new(Map::new()),
+            right: Arc::new(Map::new())
         }
     }
 
