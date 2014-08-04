@@ -1,5 +1,6 @@
 use std::sync::Arc;
 use std::collections;
+use std::default::Default;
 
 /// A key value store, implemented as a persistent, functional
 /// size balanced binary search tree.
@@ -141,5 +142,10 @@ impl<K: Send + Share, V: Send + Share> Map<K, V> {
     fn bin_no_arc(key: K, value: V, left: Map<K, V>, right: Map<K, V>) -> Map<K, V> {
         Map::bin(Arc::new(key), Arc::new(value), Arc::new(left), Arc::new(right))
     }
+}
+
+impl<K: Send + Share, V: Send + Share> Default for Map<K, V> {
+    #[inline]
+    fn default() -> Map<K, V> { Map::new() }
 }
 
