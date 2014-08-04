@@ -63,6 +63,32 @@ impl<K: Ord + Send + Share, V: Send + Share> collections::Set<K> for Map<K, V> {
     }
 }
 
+// Nonstandard lookups
+impl<K: Ord, V> Map<K, V> {
+    /// Gets the first value in the map whose key is greater than the passed in
+    /// key.
+    pub fn lookup_greater_than<'a>(&'a self, lookup: &K) -> Option<&'a V> {
+        unimplemented!()
+    }
+
+    /// Gets the first value in the map whose key is less than the passed in
+    /// key.
+    pub fn lookup_less_than<'a>(&'a self, lookup: &K) -> Option<&'a V> {
+        unimplemented!()
+    }
+
+    /// Gets the first value in the map whose key is less than or equal to
+    /// the passed in key.
+    pub fn lookup_less_equal<'a>(&'a self, lookup: &K) -> Option<&'a V> {
+        unimplemented!()
+    }
+
+    /// Gets the first value in the map whose key is greater than or equal to
+    /// the passed in key.
+    pub fn lookup_greater_equal<'a>(&'a self, lookup: &K) -> Option<&'a V> {
+        unimplemented!()
+    }
+}
 
 // Constructors
 impl<K: Send + Share, V: Send + Share> Map<K, V> {
