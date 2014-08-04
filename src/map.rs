@@ -278,3 +278,16 @@ impl<K: Send + Share + Ord, V: Send + Share> Map<K, V> {
     }
 }
 
+// Min/Max
+impl<K: Send + Share + Ord, V: Send + Share> Map<K, V> {
+    /// Find the minimum map in the map.
+    pub fn min(&self) -> Option<(Arc<K>, Arc<V>)> {
+        unimplemented!()
+    }
+
+    /// Find the maximum pair in the map.
+    pub fn max(&self) -> Option<(Arc<K>, Arc<V>)> {
+        unimplemented!()
+    }
+}
+
