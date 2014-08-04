@@ -240,18 +240,68 @@ impl<K: Send + Share + Ord, V: Send + Share> Map<K, V> {
 
     // Create a tree with size and balance restored.
     fn link(key: Arc<K>, value: Arc<V>, left: Arc<Map<K, V>>, right: Arc<Map<K, V>>) -> Map<K, V> {
-        unimplemented!()
+        match (left.deref(), right.deref()) {
+            (&Tip, r) => r.insert(key, value),
+            (l, &Tip) => l.insert(key, value),
+            (&Bin { size: ref szl, key: ref kl, value: ref vl,
+                           left: ref ll, right: ref rl},
+             &Bin { size: ref szr, key: ref kr, value: ref vr,
+                           left: ref lr, right: ref rr}) => {
+                if DELTA * *szl < *szr {
+                    Map::balance(kr.clone(), vr.clone(),
+                                 Arc::new(Map::link(key, value, left.clone(), lr.clone())),
+                                 rr.clone())
+                } else if DELTA * *szr < *szl {
+                    Map::balance(kl.clone(), vl.clone(), ll.clone(),
+                                 Arc::new(Map::link(key, value, rl.clone(), right.clone())))
+                } else {
+                    Map::bin_ref(&key, &value, &left, &right)
+                }
+            }
+        }
     }
 
     // Merge two trees and restore their balance.
     fn merge(one: Arc<Map<K, V>>, two: Arc<Map<K, V>>) -> Map<K, V> {
-        unimplemented!()
+        match (one.deref(), two.deref()) {
+            (&Tip, r) => r.clone(),
+            (l, &Tip) => l.clone(),
+            (&Bin { size: ref szl, key: ref kl, value: ref vl,
+                           left: ref ll, right: ref rl},
+             &Bin { size: ref szr, key: ref kr, value: ref vr,
+                           left: ref lr, right: ref rr}) => {
+                if DELTA * *szl < *szr {
+                    Map::balance(kr.clone(), vr.clone(),
+                                 Arc::new(Map::merge(one.clone(), lr.clone())),
+                                 rr.clone())
+                } else if DELTA * *szr < *szl {
+                    Map::balance(kl.clone(), vl.clone(), ll.clone(),
+                                 Arc::new(Map::merge(rl.clone(), two.clone())))
+                } else {
+                    Map::glue(one.clone(), two.clone())
+                }
+            }
+        }
     }
 
     // Glue two trees together, assuming that they are balanced with respect to
     // each other (all keys in left are smaller than all keys in right).
     fn glue(left: Arc<Map<K, V>>, right: Arc<Map<K, V>>) -> Map<K, V> {
-        unimplemented!()
+        match (left.deref(), right.deref()) {
+            (&Tip, r) => r.clone(),
+            (l, &Tip) => l.clone(),
+            (l, r) => {
+                if l.len() > r.len() {
+                    let (km, max) = l.max().unwrap();
+                    let lx = Arc::new(l.delete_max());
+                    Map::balance(km, max, lx, right.clone())
+                } else {
+                    let (km, min) = r.min().unwrap();
+                    let rx = Arc::new(r.delete_min());
+                    Map::balance(km, min, left.clone(), rx)
+                }
+            }
+        }
     }
 
     // Balance the left subtree only
@@ -345,6 +395,16 @@ impl<K: Send + Share + Ord, V: Send + Share> Map<K, V> {
 
     /// Find the maximum pair in the map.
     pub fn max(&self) -> Option<(Arc<K>, Arc<V>)> {
+        unimplemented!()
+    }
+
+    /// Delete the minimum element in the map.
+    pub fn delete_min(&self) -> Map<K, V> {
+        unimplemented!()
+    }
+
+    /// Delete the maximum element in the map.
+    pub fn delete_max(&self) -> Map<K, V> {
         unimplemented!()
     }
 }
