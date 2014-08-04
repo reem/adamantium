@@ -233,9 +233,93 @@ static DELTA: uint = 3;
 
 // Balancing
 impl<K: Send + Share + Ord, V: Send + Share> Map<K, V> {
-    // Balance a tree.
+    // Create a balanced tree from its constituent parts.
     fn balance(key: Arc<K>, value: Arc<V>, left: Arc<Map<K, V>>, right: Arc<Map<K, V>>) -> Map<K, V> {
-        unimplemented!()
+        if left.len() + right.len() <= 1 {
+            Map::bin(key, value, left, right)
+        } else if right.len() > DELTA * left.len() {
+            Map::rotate_left(key, value, left, right)
+        } else if left.len() > DELTA * right.len() {
+            Map::rotate_right(key, value, left, right)
+        } else {
+            Map::bin(key, value, left, right)
+        }
+    }
+
+    fn rotate_left(key: Arc<K>, value: Arc<V>, left: Arc<Map<K, V>>, right: Arc<Map<K, V>>) -> Map<K, V> {
+        match right.deref() {
+            &Tip => fail!("irrefutable pattern match failed."),
+            &Bin { left: ref l, right: ref r, .. } => {
+                if l.len() < RATIO * r.len() {
+                    Map::single_left(key, value, left, right.clone())
+                } else {
+                    Map::double_left(key, value, left, right.clone())
+                }
+            }
+        }
+    }
+
+    fn rotate_right(key: Arc<K>, value: Arc<V>, left: Arc<Map<K, V>>, right: Arc<Map<K, V>>) -> Map<K, V> {
+        match left.deref() {
+            &Tip => fail!("irrefutable pattern match failed."),
+            &Bin { left: ref l, right: ref r, .. } => {
+                if r.len() < RATIO * l.len() {
+                    Map::single_right(key, value, left.clone(), right)
+                } else {
+                    Map::double_right(key, value, left.clone(), right)
+                }
+            }
+        }
+    }
+
+    fn single_left(key: Arc<K>, value: Arc<V>, left: Arc<Map<K, V>>, right: Arc<Map<K, V>>) -> Map<K, V> {
+        match right.deref() {
+            &Tip => fail!("irrefutable pattern match failed."),
+            &Bin { key: ref kx, value: ref vx, left: ref lx, right: ref rx, .. } => {
+                Map::bin_ref(kx, vx, &Arc::new(Map::bin(key, value, left, lx.clone())), rx)
+            }
+        }
+    }
+
+    fn single_right(key: Arc<K>, value: Arc<V>, left: Arc<Map<K, V>>, right: Arc<Map<K, V>>) -> Map<K, V> {
+        match left.deref() {
+            &Tip => fail!("irrefutable pattern match failed."),
+            &Bin { key: ref kx, value: ref vx, left: ref lx, right: ref rx, .. } => {
+                Map::bin_ref(kx, vx, lx, &Arc::new(Map::bin(key, value, rx.clone(), right)))
+            }
+        }
+    }
+
+    fn double_left(key: Arc<K>, value: Arc<V>, left: Arc<Map<K, V>>, right: Arc<Map<K, V>>) -> Map<K, V> {
+        match right.deref() {
+            &Tip => fail!("irrefutable pattern match failed."),
+            &Bin { key: ref kx, value: ref vx, left: ref lx, right: ref rx, .. } => {
+                match lx.clone().deref() {
+                    &Tip => fail!("irrefutable pattern match failed."),
+                    &Bin { key: ref ky, value: ref vy, left: ref ly, right: ref ry, .. } => {
+                        Map::bin_ref(ky, vy,
+                                     &Arc::new(Map::bin(key, value, lx.clone(), ly.clone())),
+                                     &Arc::new(Map::bin_ref(kx, vx, ry, rx)))
+                    }
+                }
+            }
+        }
+    }
+
+    fn double_right(key: Arc<K>, value: Arc<V>, left: Arc<Map<K, V>>, right: Arc<Map<K, V>>) -> Map<K, V> {
+        match left.deref() {
+            &Tip => fail!("irrefutable pattern match failed."),
+            &Bin { key: ref kx, value: ref vx, left: ref lx, right: ref rx, .. } => {
+                match rx.clone().deref() {
+                    &Tip => fail!("irrefutable pattern match failed."),
+                    &Bin { key: ref ky, value: ref vy, left: ref ly, right: ref ry, .. } => {
+                        Map::bin_ref(ky, vy,
+                                     &Arc::new(Map::bin_ref(kx, vx, lx, ly)),
+                                     &Arc::new(Map::bin_ref(&key, &value, ry, &right)))
+                    }
+                }
+            }
+        }
     }
 
     // Create a tree with size and balance restored.
@@ -293,31 +377,15 @@ impl<K: Send + Share + Ord, V: Send + Share> Map<K, V> {
             (l, r) => {
                 if l.len() > r.len() {
                     let (km, max) = l.max().unwrap();
-                    let lx = Arc::new(l.delete_max());
+                    let lx = Arc::new(l.delete_max().unwrap());
                     Map::balance(km, max, lx, right.clone())
                 } else {
                     let (km, min) = r.min().unwrap();
-                    let rx = Arc::new(r.delete_min());
+                    let rx = Arc::new(r.delete_min().unwrap());
                     Map::balance(km, min, left.clone(), rx)
                 }
             }
         }
-    }
-
-    // Balance the left subtree only
-    //
-    // Should be called when the left subtree was inserted into or the right
-    // subtree was or might have been deleted from.
-    fn balance_left(key: Arc<K>, value: Arc<V>, left: Arc<Map<K, V>>, right: Arc<Map<K, V>>) -> Map<K, V> {
-        unimplemented!()
-    }
-
-    // Balance the right subtree only
-    //
-    // Should be called when the right subtree was inserted into or the left
-    // subtree was or might have been deleted from.
-    fn balance_right(key: Arc<K>, value: Arc<V>, left: Arc<Map<K, V>>, right: Arc<Map<K, V>>) -> Map<K, V> {
-        unimplemented!()
     }
 }
 
@@ -399,12 +467,12 @@ impl<K: Send + Share + Ord, V: Send + Share> Map<K, V> {
     }
 
     /// Delete the minimum element in the map.
-    pub fn delete_min(&self) -> Map<K, V> {
+    pub fn delete_min(&self) -> Option<Map<K, V>> {
         unimplemented!()
     }
 
     /// Delete the maximum element in the map.
-    pub fn delete_max(&self) -> Map<K, V> {
+    pub fn delete_max(&self) -> Option<Map<K, V>> {
         unimplemented!()
     }
 }
@@ -461,3 +529,4 @@ pub struct InorderItems<'a, K, V> {
 pub struct PostorderItems<'a, K, V> {
     map: &'a Map<K, V>
 }
+
