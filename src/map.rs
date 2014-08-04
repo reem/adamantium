@@ -251,3 +251,30 @@ impl<K: Send + Share + Ord, V: Send + Share> Map<K, V> {
     }
 }
 
+// Indexing
+impl<K: Send + Share + Ord, V: Send + Share> Map<K, V> {
+    /// Return the 0-based index of the key in a sorted sequence of all the
+    /// keys in the map.
+    pub fn find_index(&self, key: &K) -> Option<uint> {
+        unimplemented!()
+    }
+
+    /// Lookup by the index of the key in a sorted sequence of all the keys.
+    pub fn lookup_index<'a>(&'a self, key: uint) -> Option<&'a V> {
+        unimplemented!()
+    }
+
+    /// Update a value by its keys 0-based index in a sorted sequence of all
+    /// the keys in the map.
+    ///
+    /// See the behavior of alter for the responses to the closure.
+    pub fn alter_index(&self, key: uint, modifier: |Option<&V>| -> Option<V>) -> Map<K, V> {
+        unimplemented!()
+    }
+
+    /// Delete the element at this index.
+    pub fn delete_index(&self, key: uint) -> Map<K, V> {
+        unimplemented!()
+    }
+}
+
