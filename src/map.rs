@@ -513,24 +513,85 @@ impl<K: Send + Share + Ord, V: Send + Share> Map<K, V> {
 
 // Min/Max
 impl<K: Send + Share + Ord, V: Send + Share> Map<K, V> {
-    /// Find the minimum map in the map.
+    /// Find the minimum pair in the map.
     pub fn min(&self) -> Option<(Arc<K>, Arc<V>)> {
-        unimplemented!()
+        match *self {
+            Tip => None,
+            Bin { ref left, ref right, ref key, ref value } => {
+                match (left.deref(), right.deref()) {
+                    // This is a tree with a right pointer only.
+                    // Return the current val because it is the min.
+                    (&Tip, ref rr) => Some((key.clone(), value.clone())),
+                    // This is a tree with a left pointer. Recurse on it.
+                    (ref ll, _) => ll.min()
+                }
+            }
+        }
     }
 
     /// Find the maximum pair in the map.
     pub fn max(&self) -> Option<(Arc<K>, Arc<V>)> {
-        unimplemented!()
+        match *self {
+            Tip => None,
+            Bin { ref left, ref right, ref key, ref value } => {
+                match (left.deref(), right.deref()) {
+                    // This is a tree with a left pointer only.
+                    // The current val is the max.
+                    (ref ll, &Tip) => Some((key.clone(), value.clone())),
+                    // This is a tree with a right pointer. Recurse on it.
+                    (_, ref rr) => rr.min()
+                }
+            }
+        }
     }
 
     /// Delete the minimum element in the map.
+    ///
+    /// Returns None if the map is empty.
     pub fn delete_min(&self) -> Option<Map<K, V>> {
-        unimplemented!()
+        match *self {
+            Tip => None,
+            Bin { ref left, ref right, ref key, ref value } => {
+                match (left.deref(), right.deref()) {
+                    // This is a leaf, the min is the current value.
+                    (&Tip, &Tip) => Some(Tip),
+                    // This is a tree with a right pointer only.
+                    // Return that right branch, because the
+                    // current val is the min.
+                    (&Tip, ref rr) => Some(rr.clone()),
+                    // This is a tree with a left pointer. Recurse on it.
+                    // ll is not a tip, delete_min cannot fail.
+                    (ref ll, ref rr) =>
+                        Some(Map::balance(key.clone(), value.clone(),
+                                          Arc::new(ll.delete_min().unwrap()),
+                                          rr.clone()))
+                }
+            }
+        }
     }
 
     /// Delete the maximum element in the map.
+    ///
+    /// Returns None if the map is empty.
     pub fn delete_max(&self) -> Option<Map<K, V>> {
-        unimplemented!()
+        match *self {
+            Tip => None,
+            Bin { ref left, ref right, ref key, ref value } => {
+                match (left.deref(), right.deref()) {
+                    // This is a leaf, the min is the current value.
+                    (&Tip, &Tip) => Some(Tip),
+                    // This is a tree with a left pointer only.
+                    // Return that left branch, because the
+                    // current val is the max.
+                    (ref ll, &Tip) => Some(ll.clone()),
+                    // This is a tree with a right pointer. Recurse on it.
+                    // rr is not a tip, delete_max cannot fail.
+                    (ref ll, ref rr) =>
+                        Some(Map::balance(key.clone(), value.clone(), ll.clone(),
+                                          Arc::new(rr.delete_max().unwrap())))
+                }
+            }
+        }
     }
 }
 
