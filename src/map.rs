@@ -414,25 +414,73 @@ impl<K: Send + Share + Ord, V: Send + Share> Map<K, V> {
     ///
     /// If they key is not a member of the map, the original map is returned.
     pub fn adjust(&self, key: &K, modifier: |&V| -> V) -> Map<K, V> {
-        unimplemented!()
+        match *self {
+            Tip => Tip,
+            Bin { key: ref kx, value: ref vx, left: ref l, right: ref r, .. } => {
+                match key.cmp(&**kx) {
+                    Less    => Map::balance(kx.clone(), vx.clone(), Arc::new(l.adjust(key, modifier)), r.clone()),
+                    Greater => Map::balance(kx.clone(), vx.clone(), l.clone(), Arc::new(r.adjust(key, modifier))),
+                    Equal   => Map::bin(kx.clone(), Arc::new(modifier(&**vx)), l.clone(), r.clone())
+                }
+            }
+        }
     }
 
     /// Conditionally update the key in the map with the provided closure. If the closure
     /// returns None, then the key value pair is deleted.
     pub fn update(&self, key: &K, modifier: |&V| -> Option<V>) -> Map<K, V> {
-        unimplemented!()
+        match *self {
+            Tip => Tip,
+            Bin { key: ref kx, value: ref vx, left: ref l, right: ref r, .. } => {
+                match key.cmp(&**kx) {
+                    Less    => Map::balance(kx.clone(), vx.clone(), Arc::new(l.update(key, modifier)), r.clone()),
+                    Greater => Map::balance(kx.clone(), vx.clone(), l.clone(), Arc::new(r.update(key, modifier))),
+                    Equal   => {
+                        match modifier(&**vx) {
+                            // Alter the key at this value
+                            Some(val) => Map::bin(kx.clone(), Arc::new(val), l.clone(), r.clone()),
+                            // Delete this key from the map
+                            None => Map::glue(l.clone(), r.clone())
+                        }
+                    }
+                }
+            }
+        }
     }
 
     /// Alter the value at the provided key, can be used to update, insert, or
     /// delete from the map.
     ///
-    /// The provided closure is called with Some(&key) if the key is found, and
+    /// The provided closure is called with `Some(&key)`, `Some(&value)` if the key is found, and
     /// None if it is not found. If the closure returns Some(value) then that
     /// value replaces the value currently at that key in the map or inserts
     /// the value into the map; if it returns None then that key value pair
     /// will be deleted or will remain not-inserted.
-    pub fn alter(&self, key: &K, modifier: |Option<&K>| -> Option<V>) -> Map<K, V> {
-        unimplemented!()
+    pub fn alter(&self, key: Arc<K>, modifier: |Option<&K>, Option<&V>| -> Option<V>) -> Map<K, V> {
+        match *self {
+            Tip => {
+                match modifier(None, None) {
+                    // Insert this key into the map.
+                    Some(val) => Map::singleton_arc(key, Arc::new(val)),
+                    // Stay not-inserted.
+                    None => Tip
+                }
+            },
+            Bin { key: ref kx, value: ref vx, left: ref l, right: ref r, .. } => {
+                match key.cmp(&**kx) {
+                    Less    => Map::balance(kx.clone(), vx.clone(), Arc::new(l.alter(key, modifier)), r.clone()),
+                    Greater => Map::balance(kx.clone(), vx.clone(), l.clone(), Arc::new(r.alter(key, modifier))),
+                    Equal   => {
+                        match modifier(Some(&**kx), Some(&**vx)) {
+                            // Alter the key at this value
+                            Some(val) => Map::bin(kx.clone(), Arc::new(val), l.clone(), r.clone()),
+                            // Delete this key from the map
+                            None => Map::glue(l.clone(), r.clone())
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
