@@ -395,7 +395,16 @@ impl<K: Send + Share + Ord, V: Send + Share> Map<K, V> {
     ///
     /// If the key is not a member of the map, the original map is returned.
     pub fn delete(&self, key: &K) -> Map<K, V> {
-        unimplemented!()
+        match *self {
+            Tip => Tip,
+            Bin { key: ref kx, value: ref vx, left: ref l, right: ref r, .. } => {
+                match key.cmp(&**kx) {
+                    Less    => Map::balance(kx.clone(), vx.clone(), Arc::new(l.delete(key)), r.clone()),
+                    Greater => Map::balance(kx.clone(), vx.clone(), l.clone(), Arc::new(r.delete(key))),
+                    Equal   => Map::glue(l.clone(), r.clone())
+                }
+            }
+        }
     }
 }
 
