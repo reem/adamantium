@@ -27,7 +27,7 @@ pub enum Map<K, V> {
     Tip
 }
 
-impl<K: Send + Share, V: Send + Share> Clone for Map<K, V> {
+impl<K: Send + Sync, V: Send + Sync> Clone for Map<K, V> {
     fn clone(&self) -> Map<K, V> {
         match *self {
             Tip => Tip,
@@ -48,7 +48,7 @@ impl<K, V> collections::Collection for Map<K, V> {
     }
 }
 
-impl<K: Ord + Send + Share, V: Send + Share> collections::Map<K, V> for Map<K, V> {
+impl<K: Ord + Send + Sync, V: Send + Sync> collections::Map<K, V> for Map<K, V> {
     fn find<'a>(&'a self, lookup: &K) -> Option<&'a V> {
         match *self {
             Bin { ref key, ref left, ref right, ref value, .. } => match key.deref().cmp(lookup) {
@@ -61,7 +61,7 @@ impl<K: Ord + Send + Share, V: Send + Share> collections::Map<K, V> for Map<K, V
     }
 }
 
-impl<K: Ord + Send + Share, V: Send + Share> collections::Set<K> for Map<K, V> {
+impl<K: Ord + Send + Sync, V: Send + Sync> collections::Set<K> for Map<K, V> {
     fn contains(&self, lookup: &K) -> bool {
         self.find(lookup).is_some()
     }
@@ -103,7 +103,7 @@ impl<K: Ord, V> Map<K, V> {
 }
 
 // Constructors
-impl<K: Send + Share, V: Send + Share> Map<K, V> {
+impl<K: Send + Sync, V: Send + Sync> Map<K, V> {
     /// An empty map.
     #[inline]
     pub fn new() -> Map<K, V> { Tip }
@@ -166,13 +166,13 @@ impl<K: Send + Share, V: Send + Share> Map<K, V> {
     }
 }
 
-impl<K: Send + Share, V: Send + Share> Default for Map<K, V> {
+impl<K: Send + Sync, V: Send + Sync> Default for Map<K, V> {
     #[inline]
     fn default() -> Map<K, V> { Map::new() }
 }
 
 // Insertion
-impl<K: Send + Share + Ord, V: Send + Share> Map<K, V> {
+impl<K: Send + Sync + Ord, V: Send + Sync> Map<K, V> {
     /// Insert a key value pair into the map. If they key is already present in
     /// the Map, it's value will be replaced.
     pub fn insert(&self, key: Arc<K>, val: Arc<V>) -> Map<K, V> {
@@ -232,7 +232,7 @@ static RATIO: uint = 2;
 static DELTA: uint = 3;
 
 // Balancing
-impl<K: Send + Share + Ord, V: Send + Share> Map<K, V> {
+impl<K: Send + Sync + Ord, V: Send + Sync> Map<K, V> {
     // Create a balanced tree from its constituent parts.
     fn balance(key: Arc<K>, value: Arc<V>, left: Arc<Map<K, V>>, right: Arc<Map<K, V>>) -> Map<K, V> {
         if left.len() + right.len() <= 1 {
@@ -390,7 +390,7 @@ impl<K: Send + Share + Ord, V: Send + Share> Map<K, V> {
 }
 
 // Deletion
-impl<K: Send + Share + Ord, V: Send + Share> Map<K, V> {
+impl<K: Send + Sync + Ord, V: Send + Sync> Map<K, V> {
     /// Delete a key and its value from the map.
     ///
     /// If the key is not a member of the map, the original map is returned.
@@ -409,7 +409,7 @@ impl<K: Send + Share + Ord, V: Send + Share> Map<K, V> {
 }
 
 // Updates
-impl<K: Send + Share + Ord, V: Send + Share> Map<K, V> {
+impl<K: Send + Sync + Ord, V: Send + Sync> Map<K, V> {
     /// Adjust the value at a specified key with the provided closure.
     ///
     /// If they key is not a member of the map, the original map is returned.
@@ -485,7 +485,7 @@ impl<K: Send + Share + Ord, V: Send + Share> Map<K, V> {
 }
 
 // Indexing
-impl<K: Send + Share + Ord, V: Send + Share> Map<K, V> {
+impl<K: Send + Sync + Ord, V: Send + Sync> Map<K, V> {
     /// Return the 0-based index of the key in a sorted sequence of all the
     /// keys in the map.
     pub fn find_index(&self, key: &K) -> Option<uint> {
@@ -512,12 +512,12 @@ impl<K: Send + Share + Ord, V: Send + Share> Map<K, V> {
 }
 
 // Min/Max
-impl<K: Send + Share + Ord, V: Send + Share> Map<K, V> {
+impl<K: Send + Sync + Ord, V: Send + Sync> Map<K, V> {
     /// Find the minimum pair in the map.
     pub fn min(&self) -> Option<(Arc<K>, Arc<V>)> {
         match *self {
             Tip => None,
-            Bin { ref left, ref right, ref key, ref value } => {
+            Bin { ref left, ref right, ref key, ref value, .. } => {
                 match (left.deref(), right.deref()) {
                     // This is a tree with a right pointer only.
                     // Return the current val because it is the min.
@@ -533,7 +533,7 @@ impl<K: Send + Share + Ord, V: Send + Share> Map<K, V> {
     pub fn max(&self) -> Option<(Arc<K>, Arc<V>)> {
         match *self {
             Tip => None,
-            Bin { ref left, ref right, ref key, ref value } => {
+            Bin { ref left, ref right, ref key, ref value, .. } => {
                 match (left.deref(), right.deref()) {
                     // This is a tree with a left pointer only.
                     // The current val is the max.
@@ -551,20 +551,20 @@ impl<K: Send + Share + Ord, V: Send + Share> Map<K, V> {
     pub fn delete_min(&self) -> Option<Map<K, V>> {
         match *self {
             Tip => None,
-            Bin { ref left, ref right, ref key, ref value } => {
+            Bin { ref left, ref right, ref key, ref value, .. } => {
                 match (left.deref(), right.deref()) {
                     // This is a leaf, the min is the current value.
                     (&Tip, &Tip) => Some(Tip),
                     // This is a tree with a right pointer only.
                     // Return that right branch, because the
                     // current val is the min.
-                    (&Tip, ref rr) => Some(rr.clone()),
+                    (&Tip, ref rr) => Some((**rr).clone()),
                     // This is a tree with a left pointer. Recurse on it.
                     // ll is not a tip, delete_min cannot fail.
                     (ref ll, ref rr) =>
                         Some(Map::balance(key.clone(), value.clone(),
                                           Arc::new(ll.delete_min().unwrap()),
-                                          rr.clone()))
+                                          right.clone()))
                 }
             }
         }
@@ -576,18 +576,18 @@ impl<K: Send + Share + Ord, V: Send + Share> Map<K, V> {
     pub fn delete_max(&self) -> Option<Map<K, V>> {
         match *self {
             Tip => None,
-            Bin { ref left, ref right, ref key, ref value } => {
+            Bin { ref left, ref right, ref key, ref value, .. } => {
                 match (left.deref(), right.deref()) {
                     // This is a leaf, the min is the current value.
                     (&Tip, &Tip) => Some(Tip),
                     // This is a tree with a left pointer only.
                     // Return that left branch, because the
                     // current val is the max.
-                    (ref ll, &Tip) => Some(ll.clone()),
+                    (ref ll, &Tip) => Some((**ll).clone()),
                     // This is a tree with a right pointer. Recurse on it.
                     // rr is not a tip, delete_max cannot fail.
                     (ref ll, ref rr) =>
-                        Some(Map::balance(key.clone(), value.clone(), ll.clone(),
+                        Some(Map::balance(key.clone(), value.clone(), left.clone(),
                                           Arc::new(rr.delete_max().unwrap())))
                 }
             }

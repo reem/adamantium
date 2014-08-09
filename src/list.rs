@@ -15,7 +15,7 @@ impl<T> List<T> {
     pub fn new() -> List<T> { Nil }
 }
 
-impl<T: Send + Share> List<T> {
+impl<T: Send + Sync> List<T> {
     /// Create a list with one element in it.
     #[inline]
     pub fn singleton(val: T) -> List<T> { Cons(val, Arc::new(Nil)) }
@@ -49,7 +49,7 @@ pub struct ListItems<'a, T> {
     list: &'a List<T>
 }
 
-impl<'a, T: Send + Share> Iterator<&'a T> for ListItems<'a, T> {
+impl<'a, T: Send + Sync> Iterator<&'a T> for ListItems<'a, T> {
     fn next(&mut self) -> Option<&'a T> {
         match *self.list {
             Cons(ref head, ref tail) => {
