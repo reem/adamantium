@@ -2,6 +2,8 @@ use std::sync::Arc;
 use std::collections;
 use std::default::Default;
 
+use std::collections::Deque;
+
 /// A key value store, implemented as a persistent, functional
 /// size balanced binary search tree.
 pub enum Map<K, V> {
@@ -72,33 +74,6 @@ impl<K: Ord + Send + Sync, V: Send + Sync> collections::Set<K> for Map<K, V> {
 
     fn is_subset(&self, other: &Map<K, V>) -> bool {
         self.inorder_iter().all(|(k, v)| other.contains(k.deref()))
-    }
-}
-
-// Nonstandard lookups
-impl<K: Ord, V> Map<K, V> {
-    /// Gets the first value in the map whose key is greater than the passed in
-    /// key.
-    pub fn lookup_greater_than<'a>(&'a self, lookup: &K) -> Option<&'a V> {
-        unimplemented!()
-    }
-
-    /// Gets the first value in the map whose key is less than the passed in
-    /// key.
-    pub fn lookup_less_than<'a>(&'a self, lookup: &K) -> Option<&'a V> {
-        unimplemented!()
-    }
-
-    /// Gets the first value in the map whose key is less than or equal to
-    /// the passed in key.
-    pub fn lookup_less_equal<'a>(&'a self, lookup: &K) -> Option<&'a V> {
-        unimplemented!()
-    }
-
-    /// Gets the first value in the map whose key is greater than or equal to
-    /// the passed in key.
-    pub fn lookup_greater_equal<'a>(&'a self, lookup: &K) -> Option<&'a V> {
-        unimplemented!()
     }
 }
 
@@ -484,33 +459,6 @@ impl<K: Send + Sync + Ord, V: Send + Sync> Map<K, V> {
     }
 }
 
-// Indexing
-impl<K: Send + Sync + Ord, V: Send + Sync> Map<K, V> {
-    /// Return the 0-based index of the key in a sorted sequence of all the
-    /// keys in the map.
-    pub fn find_index(&self, key: &K) -> Option<uint> {
-        unimplemented!()
-    }
-
-    /// Lookup by the index of the key in a sorted sequence of all the keys.
-    pub fn lookup_index<'a>(&'a self, key: uint) -> Option<&'a V> {
-        unimplemented!()
-    }
-
-    /// Update a value by its keys 0-based index in a sorted sequence of all
-    /// the keys in the map.
-    ///
-    /// See the behavior of alter for the responses to the closure.
-    pub fn alter_index(&self, key: uint, modifier: |Option<&V>| -> Option<V>) -> Map<K, V> {
-        unimplemented!()
-    }
-
-    /// Delete the element at this index.
-    pub fn delete_index(&self, key: uint) -> Map<K, V> {
-        unimplemented!()
-    }
-}
-
 // Min/Max
 impl<K: Send + Sync + Ord, V: Send + Sync> Map<K, V> {
     /// Find the minimum pair in the map.
@@ -598,8 +546,12 @@ impl<K: Send + Sync + Ord, V: Send + Sync> Map<K, V> {
 // Iterators
 impl<K: Send + Sync, V: Send + Sync> Map<K, V> {
     /// Get a breadth-first iterator over the items in a map.
-    pub fn bfs_iter(&self) -> BfsItems<K, V> {
-        unimplemented!()
+    pub fn bfs_iter(map: Arc<Map<K, V>>) -> BfsItems<K, V> {
+        let mut queue = collections::RingBuf::new();
+        queue.push(map);
+        BfsItems {
+            queue: queue
+        }
     }
 
     /// Get an inorder iterator over the items in a map.
@@ -650,8 +602,26 @@ impl<K: Send + Sync, V: Send + Sync> Map<K, V> {
 }
 
 /// A breadth-first iterator over the pairs of a map.
-pub struct BfsItems<'a, K, V> {
-    map: &'a Map<K, V>
+pub struct BfsItems<K, V> {
+    queue: collections::RingBuf<Arc<Map<K, V>>>
+}
+
+impl<K: Send + Sync, V: Send + Sync> Iterator<(Arc<K>, Arc<V>)> for BfsItems<K, V> {
+    fn next(&mut self) -> Option<(Arc<K>, Arc<V>)> {
+        match self.queue.pop_front() {
+            Some(next) => {
+                match *next {
+                    Tip => self.next(),
+                    Bin { ref left, ref right, ref key, ref value, .. } => {
+                        self.queue.push(left.clone());
+                        self.queue.push(right.clone());
+                        Some((key.clone(), value.clone()))
+                    }
+                }
+            },
+            None => None
+        }
+    }
 }
 
 /// An iterator
