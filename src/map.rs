@@ -596,36 +596,57 @@ impl<K: Send + Sync + Ord, V: Send + Sync> Map<K, V> {
 }
 
 // Iterators
-impl<K, V> Map<K, V> {
-    /// Get a depth-first iterator over the items in a map.
-    pub fn dfs_iter(&self) -> DfsItems<K, V> {
-        unimplemented!()
-    }
-
+impl<K: Send + Sync, V: Send + Sync> Map<K, V> {
     /// Get a breadth-first iterator over the items in a map.
     pub fn bfs_iter(&self) -> BfsItems<K, V> {
         unimplemented!()
     }
 
-    /// Get a preorder iterator over the items in a map.
-    pub fn preorder_iter(&self) -> PreorderItems<K, V> {
-        unimplemented!()
+    /// Get an inorder iterator over the items in a map.
+    pub fn inorder_iter(&self) -> OrderItems<Arc<V>> {
+        match *self {
+            Tip => {
+                let iter: Empty<Arc<V>> = Empty;
+                OrderItems(box iter as Box<Iterator<Arc<V>>>)
+            },
+            Bin { ref left, ref right, ref value, .. } => {
+                OrderItems(box left.preorder_iter()
+                    .chain(Some(value.clone()).move_iter())
+                    .chain(right.preorder_iter()) as Box<Iterator<Arc<V>>>)
+            }
+        }
     }
 
-    /// Get an in-order iterator over the items in a map.
-    pub fn inorder_iter(&self) -> InorderItems<K, V> {
-        unimplemented!()
+    /// Get a postorder iterator over the items in a map.
+    pub fn preorder_iter(&self) -> OrderItems<Arc<V>> {
+        match *self {
+            Tip => {
+                let iter: Empty<Arc<V>> = Empty;
+                OrderItems(box iter as Box<Iterator<Arc<V>>>)
+            },
+            Bin { ref left, ref right, ref value, .. } => {
+                OrderItems(box Some(value.clone()).move_iter()
+                    .chain(left.preorder_iter())
+                    .chain(right.preorder_iter()) as Box<Iterator<Arc<V>>>)
+            }
+        }
     }
 
-    /// Get a post-order iterator over the items in a map.
-    pub fn postorder_iter(&self) -> PostorderItems<K, V> {
-        unimplemented!()
+    /// Get a postorder_iterator iterator over the items in a map.
+    pub fn postorder_iter(&self) -> OrderItems<Arc<V>> {
+        match *self {
+            Tip => {
+                let iter: Empty<Arc<V>> = Empty;
+                OrderItems(box iter as Box<Iterator<Arc<V>>>)
+            },
+            Bin { ref left, ref right, ref value, .. } => {
+                OrderItems(box left.preorder_iter()
+                    .chain(right.preorder_iter())
+                    .chain(Some(value.clone()).move_iter()) as Box<Iterator<Arc<V>>>)
+            }
+        }
     }
-}
 
-/// A depth-first iterator over the pairs of a map.
-pub struct DfsItems<'a, K, V> {
-    map: &'a Map<K, V>
 }
 
 /// A breadth-first iterator over the pairs of a map.
@@ -633,18 +654,20 @@ pub struct BfsItems<'a, K, V> {
     map: &'a Map<K, V>
 }
 
-/// A pre-order iterator over the pairs of a map.
-pub struct PreorderItems<'a, K, V> {
-    map: &'a Map<K, V>
+/// An iterator
+pub struct OrderItems<V>(Box<Iterator<V>>);
+
+impl<V> Iterator<V> for OrderItems<V> {
+    fn next(&mut self) -> Option<V> {
+        let OrderItems(ref mut iter) = *self;
+        iter.next()
+    }
 }
 
-/// An in-order iterator over the pairs of a map.
-pub struct InorderItems<'a, K, V> {
-    map: &'a Map<K, V>
-}
+/// An empty iterator
+pub struct Empty<V>;
 
-/// A post-order iterator over the pairs of a map.
-pub struct PostorderItems<'a, K, V> {
-    map: &'a Map<K, V>
+impl<T> Iterator<T> for Empty<T> {
+    fn next(&mut self) -> Option<T> { None }
 }
 
