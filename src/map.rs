@@ -66,12 +66,12 @@ impl<K: Ord + Send + Sync, V: Send + Sync> collections::Set<K> for Map<K, V> {
         self.find(lookup).is_some()
     }
 
-    fn is_disjoint(&self, _other: &Map<K, V>) -> bool {
-        unimplemented!()
+    fn is_disjoint(&self, other: &Map<K, V>) -> bool {
+        self.inorder_iter().all(|(k, v)| !other.contains(k.deref()))
     }
 
-    fn is_subset(&self, _other: &Map<K, V>) -> bool {
-        unimplemented!()
+    fn is_subset(&self, other: &Map<K, V>) -> bool {
+        self.inorder_iter().all(|(k, v)| other.contains(k.deref()))
     }
 }
 
@@ -603,46 +603,46 @@ impl<K: Send + Sync, V: Send + Sync> Map<K, V> {
     }
 
     /// Get an inorder iterator over the items in a map.
-    pub fn inorder_iter(&self) -> OrderItems<Arc<V>> {
+    pub fn inorder_iter(&self) -> OrderItems<(Arc<K>, Arc<V>)> {
         match *self {
             Tip => {
-                let iter: Empty<Arc<V>> = Empty;
-                OrderItems(box iter as Box<Iterator<Arc<V>>>)
+                let iter: Empty<(Arc<K>, Arc<V>)> = Empty;
+                OrderItems(box iter as Box<Iterator<(Arc<K>, Arc<V>)>>)
             },
-            Bin { ref left, ref right, ref value, .. } => {
+            Bin { ref left, ref right, ref value, ref key, .. } => {
                 OrderItems(box left.preorder_iter()
-                    .chain(Some(value.clone()).move_iter())
-                    .chain(right.preorder_iter()) as Box<Iterator<Arc<V>>>)
+                    .chain(Some((key.clone(), value.clone())).move_iter())
+                    .chain(right.preorder_iter()) as Box<Iterator<(Arc<K>, Arc<V>)>>)
             }
         }
     }
 
     /// Get a postorder iterator over the items in a map.
-    pub fn preorder_iter(&self) -> OrderItems<Arc<V>> {
+    pub fn preorder_iter(&self) -> OrderItems<(Arc<K>, Arc<V>)> {
         match *self {
             Tip => {
-                let iter: Empty<Arc<V>> = Empty;
-                OrderItems(box iter as Box<Iterator<Arc<V>>>)
+                let iter: Empty<(Arc<K>, Arc<V>)> = Empty;
+                OrderItems(box iter as Box<Iterator<(Arc<K>, Arc<V>)>>)
             },
-            Bin { ref left, ref right, ref value, .. } => {
-                OrderItems(box Some(value.clone()).move_iter()
+            Bin { ref left, ref right, ref value, ref key, .. } => {
+                OrderItems(box Some((key.clone(), value.clone())).move_iter()
                     .chain(left.preorder_iter())
-                    .chain(right.preorder_iter()) as Box<Iterator<Arc<V>>>)
+                    .chain(right.preorder_iter()) as Box<Iterator<(Arc<K>, Arc<V>)>>)
             }
         }
     }
 
     /// Get a postorder_iterator iterator over the items in a map.
-    pub fn postorder_iter(&self) -> OrderItems<Arc<V>> {
+    pub fn postorder_iter(&self) -> OrderItems<(Arc<K>, Arc<V>)> {
         match *self {
             Tip => {
-                let iter: Empty<Arc<V>> = Empty;
-                OrderItems(box iter as Box<Iterator<Arc<V>>>)
+                let iter: Empty<(Arc<K>, Arc<V>)> = Empty;
+                OrderItems(box iter as Box<Iterator<(Arc<K>, Arc<V>)>>)
             },
-            Bin { ref left, ref right, ref value, .. } => {
+            Bin { ref left, ref right, ref value, ref key, .. } => {
                 OrderItems(box left.preorder_iter()
                     .chain(right.preorder_iter())
-                    .chain(Some(value.clone()).move_iter()) as Box<Iterator<Arc<V>>>)
+                    .chain(Some((key.clone(), value.clone())).move_iter()) as Box<Iterator<(Arc<K>, Arc<V>)>>)
             }
         }
     }
