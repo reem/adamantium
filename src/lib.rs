@@ -1,7 +1,6 @@
 #![license = "MIT"]
 #![deny(missing_doc)]
 #![deny(warnings)]
-#![allow(unused_variable, dead_code)]
 
 #![feature(struct_variant, macro_rules)]
 

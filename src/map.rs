@@ -33,7 +33,7 @@ impl<K: Send + Sync, V: Send + Sync> Clone for Map<K, V> {
     fn clone(&self) -> Map<K, V> {
         match *self {
             Tip => Tip,
-            Bin { size, ref key, ref value, ref left, ref right } => {
+            Bin { ref key, ref value, ref left, ref right, .. } => {
                 Map::bin_ref(key, value, left, right)
             }
         }
@@ -69,11 +69,11 @@ impl<K: Ord + Send + Sync, V: Send + Sync> collections::Set<K> for Map<K, V> {
     }
 
     fn is_disjoint(&self, other: &Map<K, V>) -> bool {
-        self.inorder_iter().all(|(k, v)| !other.contains(k.deref()))
+        self.inorder_iter().all(|(k, _)| !other.contains(k.deref()))
     }
 
     fn is_subset(&self, other: &Map<K, V>) -> bool {
-        self.inorder_iter().all(|(k, v)| other.contains(k.deref()))
+        self.inorder_iter().all(|(k, _)| other.contains(k.deref()))
     }
 }
 
@@ -131,14 +131,6 @@ impl<K: Send + Sync, V: Send + Sync> Map<K, V> {
             right: right.clone()
         }
     }
-
-    // Bin constructor which Arc's all values.
-    //
-    // Useful for creating Bin's from constituent parts without writing
-    // boilerplate.
-    fn bin_no_arc(key: K, value: V, left: Map<K, V>, right: Map<K, V>) -> Map<K, V> {
-        Map::bin(Arc::new(key), Arc::new(value), Arc::new(left), Arc::new(right))
-    }
 }
 
 impl<K: Send + Sync, V: Send + Sync> Default for Map<K, V> {
@@ -153,8 +145,8 @@ impl<K: Send + Sync + Ord, V: Send + Sync> Map<K, V> {
     pub fn insert(&self, key: Arc<K>, val: Arc<V>) -> Map<K, V> {
         match *self {
             Tip => Map::singleton_arc(key, val),
-            Bin { size: ref sizex, key: ref keyx, value: ref valuex,
-                  left: ref leftx, right: ref rightx } => {
+            Bin { key: ref keyx, value: ref valuex,
+                  left: ref leftx, right: ref rightx, .. } => {
                 match key.cmp(&**keyx) {
                     Equal   => Map::bin_ref(&key, &val, leftx, rightx),
                     Less    => Map::balance(keyx.clone(), valuex.clone(),
@@ -171,8 +163,8 @@ impl<K: Send + Sync + Ord, V: Send + Sync> Map<K, V> {
     pub fn insert_no_replace(&self, key: Arc<K>, val: Arc<V>) -> Map<K, V> {
         match *self {
             Tip => Map::singleton_arc(key, val),
-            Bin { size: ref sizex, key: ref keyx, value: ref valuex,
-                  left: ref leftx, right: ref rightx } => {
+            Bin { key: ref keyx, value: ref valuex,
+                  left: ref leftx, right: ref rightx, .. } => {
                 match key.cmp(&**keyx) {
                     Equal   => self.clone(),
                     Less    => Map::balance(keyx.clone(), valuex.clone(),
@@ -189,8 +181,8 @@ impl<K: Send + Sync + Ord, V: Send + Sync> Map<K, V> {
     pub fn insert_or_modify_with(&self, key: Arc<K>, val: Arc<V>, modifier: |&V| -> V) -> Map<K, V> {
         match *self {
             Tip => Map::singleton_arc(key, val),
-            Bin { size: ref sizex, key: ref keyx, value: ref valuex,
-                  left: ref leftx, right: ref rightx } => {
+            Bin { key: ref keyx, value: ref valuex,
+                  left: ref leftx, right: ref rightx, .. } => {
                 match key.cmp(&**keyx) {
                     Equal   => Map::bin_ref(&key, &Arc::new(modifier(&**valuex)), leftx, rightx),
                     Less    => Map::balance(keyx.clone(), valuex.clone(),
@@ -265,7 +257,9 @@ impl<K: Send + Sync + Ord, V: Send + Sync> Map<K, V> {
         }
     }
 
-    fn double_left(key: Arc<K>, value: Arc<V>, left: Arc<Map<K, V>>, right: Arc<Map<K, V>>) -> Map<K, V> {
+    // FIXME: Something is wrong with this code. It should use left, but it
+    // does not.
+    fn double_left(key: Arc<K>, value: Arc<V>, _left: Arc<Map<K, V>>, right: Arc<Map<K, V>>) -> Map<K, V> {
         match right.deref() {
             &Tip => fail!("irrefutable pattern match failed."),
             &Bin { key: ref kx, value: ref vx, left: ref lx, right: ref rx, .. } => {
@@ -292,52 +286,6 @@ impl<K: Send + Sync + Ord, V: Send + Sync> Map<K, V> {
                                      &Arc::new(Map::bin_ref(kx, vx, lx, ly)),
                                      &Arc::new(Map::bin_ref(&key, &value, ry, &right)))
                     }
-                }
-            }
-        }
-    }
-
-    // Create a tree with size and balance restored.
-    fn link(key: Arc<K>, value: Arc<V>, left: Arc<Map<K, V>>, right: Arc<Map<K, V>>) -> Map<K, V> {
-        match (left.deref(), right.deref()) {
-            (&Tip, r) => r.insert(key, value),
-            (l, &Tip) => l.insert(key, value),
-            (&Bin { size: ref szl, key: ref kl, value: ref vl,
-                           left: ref ll, right: ref rl},
-             &Bin { size: ref szr, key: ref kr, value: ref vr,
-                           left: ref lr, right: ref rr}) => {
-                if DELTA * *szl < *szr {
-                    Map::balance(kr.clone(), vr.clone(),
-                                 Arc::new(Map::link(key, value, left.clone(), lr.clone())),
-                                 rr.clone())
-                } else if DELTA * *szr < *szl {
-                    Map::balance(kl.clone(), vl.clone(), ll.clone(),
-                                 Arc::new(Map::link(key, value, rl.clone(), right.clone())))
-                } else {
-                    Map::bin_ref(&key, &value, &left, &right)
-                }
-            }
-        }
-    }
-
-    // Merge two trees and restore their balance.
-    fn merge(one: Arc<Map<K, V>>, two: Arc<Map<K, V>>) -> Map<K, V> {
-        match (one.deref(), two.deref()) {
-            (&Tip, r) => r.clone(),
-            (l, &Tip) => l.clone(),
-            (&Bin { size: ref szl, key: ref kl, value: ref vl,
-                           left: ref ll, right: ref rl},
-             &Bin { size: ref szr, key: ref kr, value: ref vr,
-                           left: ref lr, right: ref rr}) => {
-                if DELTA * *szl < *szr {
-                    Map::balance(kr.clone(), vr.clone(),
-                                 Arc::new(Map::merge(one.clone(), lr.clone())),
-                                 rr.clone())
-                } else if DELTA * *szr < *szl {
-                    Map::balance(kl.clone(), vl.clone(), ll.clone(),
-                                 Arc::new(Map::merge(rl.clone(), two.clone())))
-                } else {
-                    Map::glue(one.clone(), two.clone())
                 }
             }
         }
@@ -469,7 +417,7 @@ impl<K: Send + Sync + Ord, V: Send + Sync> Map<K, V> {
                 match (left.deref(), right.deref()) {
                     // This is a tree with a right pointer only.
                     // Return the current val because it is the min.
-                    (&Tip, ref rr) => Some((key.clone(), value.clone())),
+                    (&Tip, _) => Some((key.clone(), value.clone())),
                     // This is a tree with a left pointer. Recurse on it.
                     (ref ll, _) => ll.min()
                 }
@@ -485,7 +433,7 @@ impl<K: Send + Sync + Ord, V: Send + Sync> Map<K, V> {
                 match (left.deref(), right.deref()) {
                     // This is a tree with a left pointer only.
                     // The current val is the max.
-                    (ref ll, &Tip) => Some((key.clone(), value.clone())),
+                    (_, &Tip) => Some((key.clone(), value.clone())),
                     // This is a tree with a right pointer. Recurse on it.
                     (_, ref rr) => rr.min()
                 }
@@ -509,7 +457,7 @@ impl<K: Send + Sync + Ord, V: Send + Sync> Map<K, V> {
                     (&Tip, ref rr) => Some((**rr).clone()),
                     // This is a tree with a left pointer. Recurse on it.
                     // ll is not a tip, delete_min cannot fail.
-                    (ref ll, ref rr) =>
+                    (ref ll, _) =>
                         Some(Map::balance(key.clone(), value.clone(),
                                           Arc::new(ll.delete_min().unwrap()),
                                           right.clone()))
@@ -534,7 +482,7 @@ impl<K: Send + Sync + Ord, V: Send + Sync> Map<K, V> {
                     (ref ll, &Tip) => Some((**ll).clone()),
                     // This is a tree with a right pointer. Recurse on it.
                     // rr is not a tip, delete_max cannot fail.
-                    (ref ll, ref rr) =>
+                    (_, ref rr) =>
                         Some(Map::balance(key.clone(), value.clone(), left.clone(),
                                           Arc::new(rr.delete_max().unwrap())))
                 }
