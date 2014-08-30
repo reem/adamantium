@@ -45,7 +45,7 @@ impl<T: Send + Sync> List<T> {
 }
 
 /// An iterator over the items in a list.
-pub struct ListItems<'a, T> {
+pub struct ListItems<'a, T: 'a> {
     list: &'a List<T>
 }
 

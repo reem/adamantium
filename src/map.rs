@@ -573,7 +573,7 @@ impl<K: Send + Sync, V: Send + Sync> Iterator<(Arc<K>, Arc<V>)> for BfsItems<K, 
 }
 
 /// An iterator
-pub struct OrderItems<V>(Box<Iterator<V>>);
+pub struct OrderItems<V>(Box<Iterator<V> + 'static>);
 
 impl<V> Iterator<V> for OrderItems<V> {
     fn next(&mut self) -> Option<V> {
