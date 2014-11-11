@@ -215,7 +215,7 @@ impl<K: Send + Sync + Ord, V: Send + Sync> Map<K, V> {
 
     fn rotate_left(key: Arc<K>, value: Arc<V>, left: Arc<Map<K, V>>, right: Arc<Map<K, V>>) -> Map<K, V> {
         match right.deref() {
-            &Tip => fail!("irrefutable pattern match failed."),
+            &Tip => panic!("irrefutable pattern match failed."),
             &Bin { left: ref l, right: ref r, .. } => {
                 if l.len() < RATIO * r.len() {
                     Map::single_left(key, value, left, right.clone())
@@ -228,7 +228,7 @@ impl<K: Send + Sync + Ord, V: Send + Sync> Map<K, V> {
 
     fn rotate_right(key: Arc<K>, value: Arc<V>, left: Arc<Map<K, V>>, right: Arc<Map<K, V>>) -> Map<K, V> {
         match left.deref() {
-            &Tip => fail!("irrefutable pattern match failed."),
+            &Tip => panic!("irrefutable pattern match failed."),
             &Bin { left: ref l, right: ref r, .. } => {
                 if r.len() < RATIO * l.len() {
                     Map::single_right(key, value, left.clone(), right)
@@ -241,7 +241,7 @@ impl<K: Send + Sync + Ord, V: Send + Sync> Map<K, V> {
 
     fn single_left(key: Arc<K>, value: Arc<V>, left: Arc<Map<K, V>>, right: Arc<Map<K, V>>) -> Map<K, V> {
         match right.deref() {
-            &Tip => fail!("irrefutable pattern match failed."),
+            &Tip => panic!("irrefutable pattern match failed."),
             &Bin { key: ref kx, value: ref vx, left: ref lx, right: ref rx, .. } => {
                 Map::bin_ref(kx, vx, &Arc::new(Map::bin(key, value, left, lx.clone())), rx)
             }
@@ -250,7 +250,7 @@ impl<K: Send + Sync + Ord, V: Send + Sync> Map<K, V> {
 
     fn single_right(key: Arc<K>, value: Arc<V>, left: Arc<Map<K, V>>, right: Arc<Map<K, V>>) -> Map<K, V> {
         match left.deref() {
-            &Tip => fail!("irrefutable pattern match failed."),
+            &Tip => panic!("irrefutable pattern match failed."),
             &Bin { key: ref kx, value: ref vx, left: ref lx, right: ref rx, .. } => {
                 Map::bin_ref(kx, vx, lx, &Arc::new(Map::bin(key, value, rx.clone(), right)))
             }
@@ -261,10 +261,10 @@ impl<K: Send + Sync + Ord, V: Send + Sync> Map<K, V> {
     // does not.
     fn double_left(key: Arc<K>, value: Arc<V>, _left: Arc<Map<K, V>>, right: Arc<Map<K, V>>) -> Map<K, V> {
         match right.deref() {
-            &Tip => fail!("irrefutable pattern match failed."),
+            &Tip => panic!("irrefutable pattern match failed."),
             &Bin { key: ref kx, value: ref vx, left: ref lx, right: ref rx, .. } => {
                 match lx.clone().deref() {
-                    &Tip => fail!("irrefutable pattern match failed."),
+                    &Tip => panic!("irrefutable pattern match failed."),
                     &Bin { key: ref ky, value: ref vy, left: ref ly, right: ref ry, .. } => {
                         Map::bin_ref(ky, vy,
                                      &Arc::new(Map::bin(key, value, lx.clone(), ly.clone())),
@@ -277,10 +277,10 @@ impl<K: Send + Sync + Ord, V: Send + Sync> Map<K, V> {
 
     fn double_right(key: Arc<K>, value: Arc<V>, left: Arc<Map<K, V>>, right: Arc<Map<K, V>>) -> Map<K, V> {
         match left.deref() {
-            &Tip => fail!("irrefutable pattern match failed."),
+            &Tip => panic!("irrefutable pattern match failed."),
             &Bin { key: ref kx, value: ref vx, left: ref lx, right: ref rx, .. } => {
                 match rx.clone().deref() {
-                    &Tip => fail!("irrefutable pattern match failed."),
+                    &Tip => panic!("irrefutable pattern match failed."),
                     &Bin { key: ref ky, value: ref vy, left: ref ly, right: ref ry, .. } => {
                         Map::bin_ref(ky, vy,
                                      &Arc::new(Map::bin_ref(kx, vx, lx, ly)),
