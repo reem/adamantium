@@ -1,8 +1,8 @@
 #![license = "MIT"]
-#![deny(missing_doc)]
+#![deny(missing_docs)]
 #![deny(warnings)]
 
-#![feature(struct_variant, macro_rules)]
+#![feature(macro_rules)]
 
 //! Persistent, immutable, functional data structures in Rust.
 

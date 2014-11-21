@@ -1,8 +1,7 @@
 use std::sync::Arc;
-use std::collections;
 use std::default::Default;
 
-use std::collections::Deque;
+pub use self::Map::{Bin, Tip};
 
 /// A key value store, implemented as a persistent, functional
 /// size balanced binary search tree.
@@ -10,19 +9,19 @@ pub enum Map<K, V> {
     /// A branch node.
     Bin {
         /// The size of this branch.
-        pub size: uint,
+        size: uint,
 
         /// The key associated with this node.
-        pub key: Arc<K>,
+        key: Arc<K>,
 
         /// The value associated with this node.
-        pub value: Arc<V>,
+        value: Arc<V>,
 
         /// The left branch of this node.
-        pub left: Arc<Map<K, V>>,
+        left: Arc<Map<K, V>>,
 
         /// The right branch of this node.
-        pub right: Arc<Map<K, V>>
+        right: Arc<Map<K, V>>
     },
 
     /// A leaf node.
@@ -40,9 +39,10 @@ impl<K: Send + Sync, V: Send + Sync> Clone for Map<K, V> {
     }
 }
 
-impl<K, V> collections::Collection for Map<K, V> {
+impl<K, V> Map<K, V> {
+    /// How many items are in the map.
     #[inline]
-    fn len(&self) -> uint {
+    pub fn len(&self) -> uint {
         match *self {
             Bin { size, .. } => size,
             Tip => 0
@@ -50,31 +50,33 @@ impl<K, V> collections::Collection for Map<K, V> {
     }
 }
 
-impl<K: Ord + Send + Sync, V: Send + Sync> collections::Map<K, V> for Map<K, V> {
-    fn find<'a>(&'a self, lookup: &K) -> Option<&'a V> {
+impl<K: Ord + Send + Sync, V: Send + Sync> Map<K, V> {
+    /// Lookup a value in the map.
+    pub fn get<'a>(&'a self, lookup: &K) -> Option<&'a V> {
         match *self {
             Bin { ref key, ref left, ref right, ref value, .. } => match key.deref().cmp(lookup) {
                 Equal   => Some(&**value),
-                Less    => left.find(lookup),
-                Greater => right.find(lookup)
+                Less    => left.get(lookup),
+                Greater => right.get(lookup)
             },
             Tip => None
         }
     }
 }
 
-impl<K: Ord + Send + Sync, V: Send + Sync> collections::Set<K> for Map<K, V> {
-    fn contains(&self, lookup: &K) -> bool {
-        self.find(lookup).is_some()
+impl<K: Ord + Send + Sync, V: Send + Sync> Map<K, V> {
+    /// Is this key in the map?
+    pub fn contains(&self, lookup: &K) -> bool {
+        self.get(lookup).is_some()
     }
 
-    fn is_disjoint(&self, other: &Map<K, V>) -> bool {
-        self.inorder_iter().all(|(k, _)| !other.contains(k.deref()))
-    }
-
-    fn is_subset(&self, other: &Map<K, V>) -> bool {
-        self.inorder_iter().all(|(k, _)| other.contains(k.deref()))
-    }
+//     fn is_disjoint(&self, other: &Map<K, V>) -> bool {
+//         self.inorder_iter().all(|(k, _)| !other.contains(k.deref()))
+//     }
+//
+//     fn is_subset(&self, other: &Map<K, V>) -> bool {
+//         self.inorder_iter().all(|(k, _)| other.contains(k.deref()))
+//     }
 }
 
 // Constructors
@@ -147,7 +149,7 @@ impl<K: Send + Sync + Ord, V: Send + Sync> Map<K, V> {
             Tip => Map::singleton_arc(key, val),
             Bin { key: ref keyx, value: ref valuex,
                   left: ref leftx, right: ref rightx, .. } => {
-                match key.cmp(&**keyx) {
+                match key.cmp(&*keyx) {
                     Equal   => Map::bin_ref(&key, &val, leftx, rightx),
                     Less    => Map::balance(keyx.clone(), valuex.clone(),
                                             Arc::new(leftx.insert(key, val)), rightx.clone()),
@@ -165,7 +167,7 @@ impl<K: Send + Sync + Ord, V: Send + Sync> Map<K, V> {
             Tip => Map::singleton_arc(key, val),
             Bin { key: ref keyx, value: ref valuex,
                   left: ref leftx, right: ref rightx, .. } => {
-                match key.cmp(&**keyx) {
+                match key.cmp(&*keyx) {
                     Equal   => self.clone(),
                     Less    => Map::balance(keyx.clone(), valuex.clone(),
                                             Arc::new(leftx.insert(key, val)), rightx.clone()),
@@ -183,7 +185,7 @@ impl<K: Send + Sync + Ord, V: Send + Sync> Map<K, V> {
             Tip => Map::singleton_arc(key, val),
             Bin { key: ref keyx, value: ref valuex,
                   left: ref leftx, right: ref rightx, .. } => {
-                match key.cmp(&**keyx) {
+                match key.cmp(&*keyx) {
                     Equal   => Map::bin_ref(&key, &Arc::new(modifier(&**valuex)), leftx, rightx),
                     Less    => Map::balance(keyx.clone(), valuex.clone(),
                                             Arc::new(leftx.insert(key, val)), rightx.clone()),
@@ -390,7 +392,7 @@ impl<K: Send + Sync + Ord, V: Send + Sync> Map<K, V> {
                 }
             },
             Bin { key: ref kx, value: ref vx, left: ref l, right: ref r, .. } => {
-                match key.cmp(&**kx) {
+                match key.cmp(&*kx) {
                     Less    => Map::balance(kx.clone(), vx.clone(), Arc::new(l.alter(key, modifier)), r.clone()),
                     Greater => Map::balance(kx.clone(), vx.clone(), l.clone(), Arc::new(r.alter(key, modifier))),
                     Equal   => {
@@ -492,100 +494,100 @@ impl<K: Send + Sync + Ord, V: Send + Sync> Map<K, V> {
 }
 
 // Iterators
-impl<K: Send + Sync, V: Send + Sync> Map<K, V> {
-    /// Get a breadth-first iterator over the items in a map.
-    pub fn bfs_iter(map: Arc<Map<K, V>>) -> BfsItems<K, V> {
-        let mut queue = collections::RingBuf::new();
-        queue.push(map);
-        BfsItems {
-            queue: queue
-        }
-    }
-
-    /// Get an inorder iterator over the items in a map.
-    pub fn inorder_iter(&self) -> OrderItems<(Arc<K>, Arc<V>)> {
-        match *self {
-            Tip => {
-                let iter: Empty<(Arc<K>, Arc<V>)> = Empty;
-                OrderItems(box iter as Box<Iterator<(Arc<K>, Arc<V>)>>)
-            },
-            Bin { ref left, ref right, ref value, ref key, .. } => {
-                OrderItems(box left.preorder_iter()
-                    .chain(Some((key.clone(), value.clone())).move_iter())
-                    .chain(right.preorder_iter()) as Box<Iterator<(Arc<K>, Arc<V>)>>)
-            }
-        }
-    }
-
-    /// Get a postorder iterator over the items in a map.
-    pub fn preorder_iter(&self) -> OrderItems<(Arc<K>, Arc<V>)> {
-        match *self {
-            Tip => {
-                let iter: Empty<(Arc<K>, Arc<V>)> = Empty;
-                OrderItems(box iter as Box<Iterator<(Arc<K>, Arc<V>)>>)
-            },
-            Bin { ref left, ref right, ref value, ref key, .. } => {
-                OrderItems(box Some((key.clone(), value.clone())).move_iter()
-                    .chain(left.preorder_iter())
-                    .chain(right.preorder_iter()) as Box<Iterator<(Arc<K>, Arc<V>)>>)
-            }
-        }
-    }
-
-    /// Get a postorder_iterator iterator over the items in a map.
-    pub fn postorder_iter(&self) -> OrderItems<(Arc<K>, Arc<V>)> {
-        match *self {
-            Tip => {
-                let iter: Empty<(Arc<K>, Arc<V>)> = Empty;
-                OrderItems(box iter as Box<Iterator<(Arc<K>, Arc<V>)>>)
-            },
-            Bin { ref left, ref right, ref value, ref key, .. } => {
-                OrderItems(box left.preorder_iter()
-                    .chain(right.preorder_iter())
-                    .chain(Some((key.clone(), value.clone())).move_iter()) as Box<Iterator<(Arc<K>, Arc<V>)>>)
-            }
-        }
-    }
-
-}
-
-/// A breadth-first iterator over the pairs of a map.
-pub struct BfsItems<K, V> {
-    queue: collections::RingBuf<Arc<Map<K, V>>>
-}
-
-impl<K: Send + Sync, V: Send + Sync> Iterator<(Arc<K>, Arc<V>)> for BfsItems<K, V> {
-    fn next(&mut self) -> Option<(Arc<K>, Arc<V>)> {
-        match self.queue.pop_front() {
-            Some(next) => {
-                match *next {
-                    Tip => self.next(),
-                    Bin { ref left, ref right, ref key, ref value, .. } => {
-                        self.queue.push(left.clone());
-                        self.queue.push(right.clone());
-                        Some((key.clone(), value.clone()))
-                    }
-                }
-            },
-            None => None
-        }
-    }
-}
-
-/// An iterator
-pub struct OrderItems<V>(Box<Iterator<V> + 'static>);
-
-impl<V> Iterator<V> for OrderItems<V> {
-    fn next(&mut self) -> Option<V> {
-        let OrderItems(ref mut iter) = *self;
-        iter.next()
-    }
-}
-
-/// An empty iterator
-pub struct Empty<V>;
-
-impl<T> Iterator<T> for Empty<T> {
-    fn next(&mut self) -> Option<T> { None }
-}
-
+// impl<K: Send + Sync, V: Send + Sync> Map<K, V> {
+//     /// Get a breadth-first iterator over the items in a map.
+//     pub fn bfs_iter(map: Arc<Map<K, V>>) -> BfsItems<K, V> {
+//         let mut queue = collections::RingBuf::new();
+//         queue.push(map);
+//         BfsItems {
+//             queue: queue
+//         }
+//     }
+//
+//     /// Get an inorder iterator over the items in a map.
+//     pub fn inorder_iter(&self) -> OrderItems<(Arc<K>, Arc<V>)> {
+//         match *self {
+//             Tip => {
+//                 let iter: Empty<(Arc<K>, Arc<V>)> = Empty;
+//                 OrderItems(box iter as Box<Iterator<(Arc<K>, Arc<V>)>>)
+//             },
+//             Bin { ref left, ref right, ref value, ref key, .. } => {
+//                 OrderItems(box left.preorder_iter()
+//                     .chain(Some((key.clone(), value.clone())).into_iter())
+//                     .chain(right.preorder_iter()) as Box<Iterator<(Arc<K>, Arc<V>)>>)
+//             }
+//         }
+//     }
+//
+//     /// Get a postorder iterator over the items in a map.
+//     pub fn preorder_iter(&self) -> OrderItems<(Arc<K>, Arc<V>)> {
+//         match *self {
+//             Tip => {
+//                 let iter: Empty<(Arc<K>, Arc<V>)> = Empty;
+//                 OrderItems(box iter as Box<Iterator<(Arc<K>, Arc<V>)>>)
+//             },
+//             Bin { ref left, ref right, ref value, ref key, .. } => {
+//                 OrderItems(box Some((key.clone(), value.clone())).into_iter()
+//                     .chain(left.preorder_iter())
+//                     .chain(right.preorder_iter()) as Box<Iterator<(Arc<K>, Arc<V>)>>)
+//             }
+//         }
+//     }
+//
+//     /// Get a postorder_iterator iterator over the items in a map.
+//     pub fn postorder_iter(&self) -> OrderItems<(Arc<K>, Arc<V>)> {
+//         match *self {
+//             Tip => {
+//                 let iter: Empty<(Arc<K>, Arc<V>)> = Empty;
+//                 OrderItems(box iter as Box<Iterator<(Arc<K>, Arc<V>)>>)
+//             },
+//             Bin { ref left, ref right, ref value, ref key, .. } => {
+//                 OrderItems(box left.preorder_iter()
+//                     .chain(right.preorder_iter())
+//                     .chain(Some((key.clone(), value.clone())).into_iter()) as Box<Iterator<(Arc<K>, Arc<V>)>>)
+//             }
+//         }
+//     }
+//
+// }
+//
+// /// A breadth-first iterator over the pairs of a map.
+// pub struct BfsItems<K, V> {
+//     queue: collections::RingBuf<Arc<Map<K, V>>>
+// }
+//
+// impl<K: Send + Sync, V: Send + Sync> Iterator<(Arc<K>, Arc<V>)> for BfsItems<K, V> {
+//     fn next(&mut self) -> Option<(Arc<K>, Arc<V>)> {
+//         match self.queue.pop_front() {
+//             Some(next) => {
+//                 match *next {
+//                     Tip => self.next(),
+//                     Bin { ref left, ref right, ref key, ref value, .. } => {
+//                         self.queue.push(left.clone());
+//                         self.queue.push(right.clone());
+//                         Some((key.clone(), value.clone()))
+//                     }
+//                 }
+//             },
+//             None => None
+//         }
+//     }
+// }
+//
+// /// An iterator
+// pub struct OrderItems<V>(Box<Iterator<V> + 'static>);
+//
+// impl<V> Iterator<V> for OrderItems<V> {
+//     fn next(&mut self) -> Option<V> {
+//         let OrderItems(ref mut iter) = *self;
+//         iter.next()
+//     }
+// }
+//
+// /// An empty iterator
+// pub struct Empty<V>;
+//
+// impl<T> Iterator<T> for Empty<T> {
+//     fn next(&mut self) -> Option<T> { None }
+// }
+//

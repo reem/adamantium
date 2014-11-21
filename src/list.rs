@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use self::List::{Cons, Nil};
 
 /// A functional, shareable, persistent singly linked list.
 pub enum List<T> {
